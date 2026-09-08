@@ -106,9 +106,12 @@ function modelMeta(id: string): {
   const isSonnet = lower.includes("sonnet");
   const isHaiku = lower.includes("haiku");
   const isClaude = lower.includes("claude");
-  const isClaude4x = /claude[\-.]?(opus|sonnet|haiku)?[\-.]?4/.test(lower);
-  const isClaude3x = /claude[\-.]?3[\-.]?(5|7)/.test(lower);
-  const isModernClaude = isClaude4x || isClaude3x;
+  // Any Claude at version >= 3.5. Version-agnostic so future releases keep
+  // reasoning support without another code change.
+  const claudeVersion = lower.match(/claude[\-.]?(?:opus|sonnet|haiku|fable)?[\-.]?(\d+)(?:[\-.](\d+))?/);
+  const major = claudeVersion ? Number(claudeVersion[1]) : 0;
+  const minor = claudeVersion?.[2] ? Number(claudeVersion[2]) : 0;
+  const isModernClaude = isClaude && (major > 3 || (major === 3 && minor >= 5));
 
   // Reasoning-capable families beyond Claude. Without this, thinking models from
   // other vendors were silently registered as non-reasoning.
