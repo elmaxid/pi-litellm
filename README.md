@@ -11,7 +11,16 @@ Keeps the Pi model selector in sync with LiteLLM's live model list. On startup (
 **Before:** `claude-opus-4.6 [litellm]` (stale, doesn't match LiteLLM routing names)
 **After:** `bedrock/claude-opus-4.6 [litellm]`, `openrouter/claude-sonnet-4.6 [litellm]`
 
-Model capabilities (reasoning, context window, max tokens, thinking levels) are auto-detected from the model ID.
+Context window and max output tokens are read from the metadata LiteLLM advertises (`max_input_tokens` / `max_output_tokens`), falling back to `/model/info` and then to ID-based heuristics. Remaining capabilities (thinking levels, reasoning) are still derived from the model ID.
+
+Resolution order per model, highest priority first:
+
+1. `modelOverrides` in `models.json`
+2. `max_input_tokens` / `max_output_tokens` from `GET /v1/models`
+3. `model_info` from `GET /model/info`
+4. ID-based heuristic (`128000`, or `200000` for Claude)
+
+Models that reach step 4 are listed in a startup warning so you know which ones need an override.
 
 ### Cost Tracking (`litellm-cost.ts`)
 
@@ -113,6 +122,31 @@ If you prefer file-based config over env vars, add a `litellm` provider entry to
 The sync extension reads `baseUrl`, `apiKey`, and `api` from this config. You do **not** need to define models here — they're populated dynamically from LiteLLM.
 
 Priority: environment variables > models.json > defaults.
+
+#### Model overrides
+
+When LiteLLM advertises no token limits for a model, or you want to deviate from
+what it reports, use `modelOverrides`:
+
+```json
+{
+  "providers": {
+    "litellm": {
+      "baseUrl": "http://localhost:4000",
+      "modelOverrides": {
+        "gemini-pro": { "contextWindow": 1048576, "maxTokens": 65536 },
+        "my-custom-model": { "contextWindow": 262144, "reasoning": true }
+      }
+    }
+  }
+}
+```
+
+Supported fields: `contextWindow`, `maxTokens`, `reasoning`. Each is optional and
+overrides only that field.
+
+Overrides are also the way to *cap* a context window below what the provider
+reports — for example to stay inside a short-context pricing tier.
 
 ## LiteLLM Setup
 
